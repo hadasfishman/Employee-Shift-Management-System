@@ -1,6 +1,11 @@
 {
+  "homepage": "https://hadasfishman.github.io/Employee-Shift-Management-System",
   "dependencies": {
     "html2canvas": "^1.4.1",
     "xlsx": "^0.18.5"
+  },
+  "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   }
 }

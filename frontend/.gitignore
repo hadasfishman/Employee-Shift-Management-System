@@ -1,6 +1,16 @@
 # ====================================================================
-# AI-Powered Shift Scheduling System - Custom GitIgnore
+# AI-Powered Shift Scheduling System - Custom GitIgnore (SECURE)
 # ====================================================================
+
+# --- Security & Secrets (Environment Variables) ---
+# חסימה מוחלטת של כל קבצי ה-env, בכל התיקיות, כולל קבצים בסיסיים ומקומיים
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.*
 
 # --- Python & System Cruft ---
 venv/
@@ -17,11 +27,7 @@ Thumbs.db
 node_modules/
 dist/
 build/
-. those/
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.those/
 
 # --- Local Databases & Storage ---
 *.db
