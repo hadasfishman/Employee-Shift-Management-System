@@ -1,4 +1,4 @@
-# AI-Powered Shift Scheduling Optimization System
+# Shift Scheduling Optimization System
 
 A robust, enterprise-grade Full-Stack Shift Scheduling Application that automates complex workforce management. The system utilizes mathematical optimization to solve scheduling puzzles, ensuring absolute compliance with operational constraints while maximizing employee preference and fairness.
 
