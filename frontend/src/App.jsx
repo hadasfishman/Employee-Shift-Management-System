@@ -136,7 +136,7 @@ function App() {
     const seedToSend = forcedSeed !== null ? forcedSeed : currentSeed;
 
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/schedule', {
+      const response = await fetch('https://employee-shift-management-system.onrender.com/api/schedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
