@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* ייבוא גופן Assistant מ-Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@200;300;400;600;700;800&display=swap');
+
+/* הגדרת הגופן כברירת מחדל לכל האתר */
+@theme {
+  --font-sans: 'Assistant', sans-serif;
+}
