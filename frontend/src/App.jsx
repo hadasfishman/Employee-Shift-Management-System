@@ -326,7 +326,7 @@ function App() {
               <div><label className="flex items-center space-x-2 space-x-reverse cursor-pointer"><input type="radio" checked={useHistoryFromDB} onChange={() => setUseHistoryFromDB(true)} className="text-blue-500 bg-gray-700" /><span className="text-sm font-medium mr-2 text-gray-200">טען היסטוריה אוטומטית ממסד הנתונים (מומלץ)</span></label></div>
               <div>
                 <label className="flex items-center space-x-2 space-x-reverse cursor-pointer"><input type="radio" checked={!useHistoryFromDB} onChange={() => setUseHistoryFromDB(false)} className="text-blue-500 bg-gray-700" /><span className="text-sm font-medium mr-2 text-gray-200">הזן נתוני פתיחה באופן ידני</span></label>
-                {!useHistoryFromDB && <div className="mt-2 pr-6"><input type="text" placeholder="למשל: Alice" value={lastNightWorker} onChange={(e) => setLastNightWorker(e.target.value)} className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1 text-sm text-white w-full focus:outline-none" /></div>}
+                {!useHistoryFromDB && <div className="mt-2 pr-6"><input type="text" placeholder=" מי עשה שבת לילה למשל: Bob" value={lastNightWorker} onChange={(e) => setLastNightWorker(e.target.value)} className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1 text-sm text-white w-full focus:outline-none" /></div>}
               </div>
             </div>
           </section>
