@@ -9,12 +9,11 @@ CORS(app)
 
 DB_NAME = "schedule.db"
 
-# Helper function to initialize the database and tables if they do not exist
+# פונקציית עזר ליצירת בסיס הנתונים והטבלאות אם הן לא קיימות
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
-    # Table for saving finalized and approved schedules
+    # טבלה לשמירת משמרות סופיות ומאושרות
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS past_schedules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,20 +42,21 @@ def is_overlapping(start1, end1, start2, end2):
         return s1 >= s2 or s1 <= e2 or e1 >= s2 or e1 <= e2
     return max(s1, s2) < min(e1, e2)
 
-# Endpoint: Save the approved schedule to the database for future continuity
+# 💾 אנדפוינט חדש: שמירת הסידור הסופי לתוך בסיס הנתונים
 @app.route('/api/save_schedule', methods=['POST'])
 def save_schedule():
     content = request.json
     final_schedule = content.get('schedule', [])
     
     if not final_schedule:
-        return jsonify({"status": "error", "message": "Empty schedule received."}), 400
+        return jsonify({"status": "error", "message": "התקבל לוח ריק, אין מה לשמור"}), 400
         
     try:
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         
-        # For simplicity, we clear the previous schedule so only the latest approved schedule acts as history
+        # לצורך הפשטות, אנחנו מנקים את השיבוץ הישן הרשום (או שומרים היסטורית מצטברת)
+        # כאן ננקה כדי שהסידור האחרון שאישרת יהיה תמיד ה-היסטוריה היחידה
         cursor.execute("DELETE FROM past_schedules")
         
         for item in final_schedule:
@@ -73,9 +73,9 @@ def save_schedule():
                 
         conn.commit()
         conn.close()
-        return jsonify({"status": "success", "message": "Schedule successfully locked and saved to DB."})
+        return jsonify({"status": "success", "message": "הסידור ננעל ונשמר בהצלחה במסד הנתונים!"})
     except Exception as e:
-        return jsonify({"status": "error", "message": f"Database error: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"שגיאת DB: {str(e)}"}), 500
 
 
 @app.route('/api/schedule', methods=['POST'])
@@ -91,43 +91,43 @@ def generate_schedule():
     history_config = content.get('history', {})
     
     if not active_shifts:
-        return jsonify({"status": "error", "message": "No active shifts selected."}), 400
+        return jsonify({"status": "error", "message": "לא נבחרו משמרות פעילות"}), 400
     if not employees_list:
-        return jsonify({"status": "error", "message": "Employee list is empty."}), 400
+        return jsonify({"status": "error", "message": "רשימת המאיישים ריקה"}), 400
 
     model = cp_model.CpModel()
     num_days = days_horizon
     num_employees = len(employees_list)
     
-    # Decision Variables
     shift_vars = {}
     for e in range(num_employees):
         for d in range(num_days):
             for s_idx, shift in enumerate(active_shifts):
                 shift_vars[(e, d, s_idx)] = model.NewBoolVar(f'shift_e{e}_d{d}_s{s_idx}')
 
-    # Constraint 1: Exact staff count required per shift
+    # אילוץ 1: דרישת כמות מאיישים
     for d in range(num_days):
         for s_idx, shift in enumerate(active_shifts):
             required_count = shift.get('count', 1)
             model.Add(sum(shift_vars[(e, d, s_idx)] for e in range(num_employees)) == required_count)
 
-    # Constraint 2: Mandatory presence of a Team Lead (rank == 3) if required by the shift
+    # אילוץ 2: נוכחות חובה של ראש תא (rank == 3)
     for d in range(num_days):
         for s_idx, shift in enumerate(active_shifts):
             if shift.get('require_team_lead', False):
                 model.Add(sum(shift_vars[(e, d, s_idx)] for e in range(num_employees) if employees_list[e]['rank'] == 3) >= 1)
 
-    # Constraint 3: Mandatory presence of a Senior Researcher or above (rank >= 2) if required
+    # אילוץ 3: נוכחות חובה של חוקר ותיק ומעלה (rank >= 2)
     for d in range(num_days):
         for s_idx, shift in enumerate(active_shifts):
             if shift.get('require_senior', False):
                 model.Add(sum(shift_vars[(e, d, s_idx)] for e in range(num_employees) if employees_list[e]['rank'] >= 2) >= 1)
 
-    # Smart History Logic: Retrieve previous night shift workers to enforce rest rules on Day 0
+    # 📥 לוגיקת פתרון הבאג: שליפת היסטוריה חכמה מה-DB עבור היום הראשון (Day 0)
     blocked_for_first_morning = []
     
     if history_config.get('use_db', True):
+        # שליפה אוטומטית מה-DB של מי שעשה לילה בסידור הקודם
         try:
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
@@ -138,20 +138,21 @@ def generate_schedule():
         except:
             pass
     else:
+        # שליפה מההזנה הידנית באתר
         manual_worker = history_config.get('manual_last_night_worker', '')
         if manual_worker:
             blocked_for_first_morning.append(manual_worker.strip())
 
-    # Historical Hard Constraint: Block morning shifts on Day 1 for employees who worked the previous night shift
+    # אילוץ קשיח היסטורי: מי שעשה לילה אתמול (בסידור הקודם) חסום מלעשות בוקר ביום הראשון של הסידור החדש!
     for worker_name in blocked_for_first_morning:
         for e in range(num_employees):
             if employees_list[e]['name'].lower() == worker_name.lower():
                 for s_idx, shift in enumerate(active_shifts):
                     start_hour = int(shift['start_hour'].split(':')[0])
-                    if start_hour < 12: # Any shift starting before 12:00 PM
+                    if start_hour < 12: # כל משמרת שמתחילה לפני 12 בצהריים ביום הראשון
                         model.Add(shift_vars[(e, 0, s_idx)] == 0)
 
-    # Constraint 4: Prevent overlapping shifts for the same employee on the same day
+    # אילוץ 4: חסימת חפיפות שעות באותו יום
     for d in range(num_days):
         for e in range(num_employees):
             for s1_idx, shift1 in enumerate(active_shifts):
@@ -160,7 +161,7 @@ def generate_schedule():
                         if is_overlapping(shift1['start_hour'], shift1['end_hour'], shift2['start_hour'], shift2['end_hour']):
                             model.Add(shift_vars[(e, d, s1_idx)] + shift_vars[(e, d, s2_idx)] <= 1)
 
-    # Constraint 5: Mandatory rest after a night shift within the current scheduling horizon
+    # אילוץ 5: מנוחה חובה אחרי משמרת לילה בתוך הסידור הנוכחי
     for d in range(num_days - 1):
         for e in range(num_employees):
             for s1_idx, shift1 in enumerate(active_shifts):
@@ -170,7 +171,7 @@ def generate_schedule():
                         if start_hour_next_day < 12:
                             model.Add(shift_vars[(e, d, s1_idx)] + shift_vars[(e, d+1, s2_idx)] <= 1)
 
-    # Constraint 6: Weekly quotas (Minimum and Maximum shifts per employee)
+    # אילוץ 6: מכסות שבועיות
     for e in range(num_employees):
         first_week_shifts = sum(shift_vars[(e, d, s_idx)] for d in range(min(7, num_days)) for s_idx in range(len(active_shifts)))
         model.Add(first_week_shifts <= max_shifts)
@@ -181,7 +182,7 @@ def generate_schedule():
             model.Add(second_week_shifts <= max_shifts)
             model.Add(second_week_shifts >= min_shifts)
 
-    # Soft Constraints (Penalties and Bonuses for Optimization)
+    # אופטימיזציות וקנסות גמישים
     penalties = []
     bonuses = []
 
@@ -190,7 +191,6 @@ def generate_schedule():
             num_leads = sum(shift_vars[(e, d, s_idx)] for e in range(num_employees) if employees_list[e]['rank'] == 3)
             num_seniors = sum(shift_vars[(e, d, s_idx)] for e in range(num_employees) if employees_list[e]['rank'] == 2)
 
-            # Optimization for Team Leads (Rank 3)
             if shift.get('require_team_lead', False):
                 excess_leads = model.NewIntVar(0, num_employees, f'excess_leads_d{d}_s{s_idx}')
                 model.Add(excess_leads == num_leads - 1)
@@ -198,16 +198,14 @@ def generate_schedule():
             else:
                 penalties.append(num_leads * 20)
 
-            # Optimization for Senior Researchers (Rank 2) - Prevent unnecessary grouping of experienced staff
             if shift.get('require_senior', False):
                 total_experienced = sum(shift_vars[(e, d, s_idx)] for e in range(num_employees) if employees_list[e]['rank'] >= 2)
                 excess_exp = model.NewIntVar(0, num_employees, f'excess_exp_d{d}_s{s_idx}')
                 model.Add(excess_exp == total_experienced - 1)
                 penalties.append(excess_exp * 25)
             else:
-                penalties.append(num_seniors * 15) # Penalty for wasting senior staff on non-critical shifts
+                penalties.append(num_seniors * 15)
 
-    # Strategy Modifiers
     if strategy == 'continuity':
         for e in range(num_employees):
             for d in range(num_days - 1):
@@ -221,7 +219,6 @@ def generate_schedule():
         total_assigned = sum(shift_vars[(e, d, s_idx)] for e in range(num_employees) for d in range(num_days) for s_idx in range(len(active_shifts)))
         penalties.append(total_assigned * 10)
 
-    # Maximize Objective Function
     model.Maximize(sum(bonuses) - sum(penalties))
 
     solver = cp_model.CpSolver()
@@ -250,8 +247,7 @@ def generate_schedule():
                 })
         return jsonify({"status": "success", "schedule": generated_schedule})
     else:
-        return jsonify({"status": "error", "message": "No feasible solution found for the given constraints."})
+        return jsonify({"status": "error", "message": "אין פתרון חוקי לאילוצים הקשיחים."})
 
 if __name__ == '__main__':
-    # host='0.0.0.0' allows external devices on the same network to access the server
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, port=5000)
