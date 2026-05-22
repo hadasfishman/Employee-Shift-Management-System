@@ -1,0 +1,41 @@
+# ====================================================================
+# AI-Powered Shift Scheduling System - Custom GitIgnore
+# ====================================================================
+
+# --- Python & System Cruft ---
+venv/
+.venv/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+Thumbs.db
+
+# --- Frontend Build & Dependencies ---
+node_modules/
+dist/
+build/
+. those/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# --- Local Databases & Storage ---
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Dynamic & Temporary Backup Folders ---
+*2.0*/
+*גיבוי*/
+*Backup*/
+
+# --- Project-Specific Custom Rules ---
+# חסימה מוחלטת של קבצי מדור (כולל בתוך frontend/src או בתוך ה-backend)
+*MADOR*
+*mador*
+*MADOR.*
+*mador.*
